@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Game Hái Trái Cây Học Từ Vựng</title>
+    <style>
+        :root {
+            --font-scale: 1;
+            --base-font-size: 15px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            user-select: none;
+            /* Không dùng text-transform để tôn trọng chữ hoa/thường của developer */
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; /* Chống tràn cuộn trên toàn màn hình */
+            background: linear-gradient(135deg, #74b9ff, #a29bfe);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game-wrapper {
+            width: 98vw;
+            max-width: 1040px;
+            height: 96vh;
+            max-height: 720px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Thanh trạng thái trên cùng */
+        .status-bar {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f2f6;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.95);
+            font-weight: 600;
+            color: #2f3542;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .badge-level {
+            background: #ff4757;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .highlight-text {
+            color: #2ed573;
+            font-weight: bold;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 1.15);
+        }
+
+        .tools-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Bộ chọn cỡ chữ A A A */
+        .font-size-group {
+            display: flex;
+            align-items: center;
+            background: #dfe4ea;
+            border-radius: 20px;
+            padding: 2px 4px;
+            gap: 2px;
+        }
+
+        .btn-font {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 2px 7px;
+            border-radius: 12px;
+            font-weight: bold;
+            color: #2f3542;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-font.active {
+            background: #ffffff;
+            color: #3742fa;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+
+        .font-sm { font-size: 11px; }
+        .font-md { font-size: 14px; }
+        .font-lg { font-size: 17px; }
+
+        .btn-sound {
+            background: #ffffff;
+            border: 1px solid #ced6e0;
+            padding: 4px 10px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.85);
+            font-weight: bold;
+            color: #2f3542;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        /* Khung cảnh vườn cây */
+        .garden-scene {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            width: 100%;
+            background: linear-gradient(to bottom, #dff9fb 62%, #a8e6cf 62%);
+            border-radius: 16px;
+            border: 3px solid #2ed573;
+            overflow: hidden;
+        }
+
+        /* Thùng gỗ bên trái */
+        .wooden-basket {
+            position: absolute;
+            left: 15px;
+            bottom: 12px;
+            width: 270px;
+            height: 275px;
+            background: #b9770e;
+            border: 4px solid #6e2c00;
+            border-radius: 14px;
+            box-shadow: inset 0 0 15px #4a1d00, 0 8px 16px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            z-index: 12;
+        }
+
+        .basket-title {
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.82);
+            color: #fff;
+            background: #6e2c00;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.2;
+            width: 95%;
+        }
+
+        .basket-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            width: 100%;
+            justify-items: center;
+        }
+
+        .basket-slot {
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            border: 1.5px dashed rgba(255, 255, 255, 0.4);
+        }
+
+        .basket-slot.filled {
+            background: #ffffff;
+            border: 2px solid #2ed573;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+            animation: popIn 0.35s ease;
+        }
+
+        /* Khu vực cây bên phải */
+        .tree-stage {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 65%;
+            height: 100%;
+        }
+
+        .tree-svg {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Quả trên cây */
+        .fruit-node {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #fff2cc);
+            border: 2.5px solid #ffa502;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            z-index: 10;
+        }
+
+        .fruit-node:hover {
+            transform: scale(1.2) translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            border-color: #ff4757;
+        }
+
+        .fruit-icon {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        /* Modal trả lời câu hỏi */
+        .modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(3px);
+            z-index: 50;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .quiz-card {
+            background: #ffffff;
+            width: 90%;
+            max-width: 450px;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            animation: zoomIn 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quiz-instruction {
+            color: #747d8c;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.9);
+            line-height: 1.2;
+        }
+
+        .quiz-target {
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 1.8);
+            color: #ff4757;
+            font-weight: 800;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .btn-option {
+            background: #f1f2f6;
+            border: 2px solid #ced6e0;
+            padding: 10px 6px;
+            border-radius: 12px;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.95);
+            font-weight: 600;
+            color: #2f3542;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            line-height: 1.2;
+            min-height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .btn-option:hover:not(:disabled) {
+            background: #dfe4ea;
+            border-color: #70a1ff;
+            transform: translateY(-2px);
+        }
+
+        .btn-option:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .quiz-feedback {
+            font-weight: bold;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.9);
+            min-height: 22px;
+            line-height: 1.3;
+        }
+
+        /* Modal thử thách tinh mắt */
+        .shuffle-modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(19, 15, 64, 0.96);
+            z-index: 60;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            padding: 15px;
+        }
+
+        .shuffle-title {
+            color: #f1c40f;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 1.4);
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .speed-control-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 6px 0;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.85);
+        }
+
+        .speed-btn {
+            background: transparent;
+            border: 1.5px solid #7ed6df;
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.8);
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .speed-btn.active {
+            background: #f0932b;
+            border-color: #f0932b;
+            color: #fff;
+        }
+
+        .shuffle-guide {
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 1);
+            text-align: center;
+            margin: 4px 0;
+            line-height: 1.3;
+            max-width: 90%;
+        }
+
+        .shuffle-stage {
+            position: relative;
+            width: 520px;
+            height: 180px;
+            margin: 10px 0;
+        }
+
+        .special-card {
+            position: absolute;
+            top: 0;
+            width: 145px;
+            height: 175px;
+            background: linear-gradient(145deg, #ffffff, #f1f2f6);
+            color: #2f3542;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border: 3.5px solid #ffbe76;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            transition: left cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 4px;
+            line-height: 1;
+        }
+
+        .card-name-vn {
+            font-weight: bold;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 1);
+            line-height: 1.2;
+        }
+
+        .card-name-en {
+            font-style: italic;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.85);
+            color: #7f8c8d;
+            line-height: 1.2;
+        }
+
+        .special-card.card-selected {
+            border: 4px solid #2ed573 !important;
+            box-shadow: 0 0 20px #2ed573, 0 8px 20px rgba(0,0,0,0.5) !important;
+            transform: scale(1.08) translateY(-5px) !important;
+        }
+
+        .hidden-fruit {
+            background: linear-gradient(145deg, #34495e, #1e272e) !important;
+            border-color: #718093 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+
+        .hidden-fruit * { display: none !important; }
+        .hidden-fruit::after {
+            content: "❓";
+            font-size: 3.2rem;
+            color: #f6b93b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            line-height: 1;
+        }
+
+        .btn-action-shuffle {
+            padding: 8px 22px;
+            background: #2ed573;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: calc(var(--base-font-size) * var(--font-scale) * 0.95);
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 6px;
+            box-shadow: 0 4px 10px rgba(46, 213, 115, 0.4);
+        }
+
+        .flying-fruit {
+            position: fixed;
+            font-size: 2.2rem;
+            z-index: 100;
+            pointer-events: none;
+            transition: all 0.75s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .confetti-piece {
+            position: fixed;
+            width: 8px;
+            height: 12px;
+            pointer-events: none;
+            z-index: 150;
+            border-radius: 2px;
+            animation: confettiFall 1.2s forwards cubic-bezier(0.2, 0.8, 0.3, 1);
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.4); opacity: 0; }
+        }
+
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.2); }
+            80% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper" onclick="initAudioOnUserGesture()">
+    <!-- Thanh trạng thái -->
+    <div class="status-bar">
+        <span class="badge-level" id="level-label">Màn 1: tiếng Anh ➔ tiếng Việt</span>
+        <span>Điểm số: <span class="highlight-text" id="score-val">0</span></span>
+        <span>Chuỗi đúng: <span class="highlight-text" id="streak-val">0</span>/3</span>
+        
+        <div class="tools-group">
+            <!-- Nút chọn kích thước chữ A A A -->
+            <div class="font-size-group">
+                <button class="btn-font font-sm" onclick="changeFontSize(0.85, this)" title="Chữ nhỏ">A</button>
+                <button class="btn-font font-md active" onclick="changeFontSize(1.0, this)" title="Chữ vừa">A</button>
+                <button class="btn-font font-lg" onclick="changeFontSize(1.18, this)" title="Chữ lớn">A</button>
+            </div>
+
+            <button class="btn-sound" onclick="toggleAudio(event)">
+                <span id="sound-icon">🔊</span> <span id="sound-text">Bật</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Khung cảnh vườn cây -->
+    <div class="garden-scene" id="garden-scene">
+        <!-- Thùng gỗ bên trái -->
+        <div class="wooden-basket">
+            <div class="basket-title">Thùng chứa trái cây (<span id="collected-count">0</span>/13)</div>
+            <div class="basket-grid" id="basket-grid">
+                <!-- 13 ô cố định -->
+            </div>
+        </div>
+
+        <!-- Cây dời sang bên phải -->
+        <div class="tree-stage">
+            <svg class="tree-svg" viewBox="0 0 580 480" preserveAspectRatio="xMidYMid meet">
+                <!-- Thân và cành cây -->
+                <path d="M 260 480 L 275 290 Q 215 220 170 170 L 205 160 Q 260 210 285 260 Q 310 210 385 155 L 415 170 Q 355 225 315 290 L 325 480 Z" fill="#795548"/>
+                <path d="M 260 460 Q 195 480 150 480 L 265 430 Z" fill="#5d4037"/>
+                <path d="M 325 460 Q 390 480 440 480 L 320 430 Z" fill="#5d4037"/>
+                
+                <!-- Tán lá chuẩn bao trọn 13 quả -->
+                <circle cx="140" cy="180" r="85" fill="#2ed573" opacity="0.95"/>
+                <circle cx="445" cy="180" r="85" fill="#2ed573" opacity="0.95"/>
+                <circle cx="180" cy="100" r="95" fill="#26af5f" opacity="0.95"/>
+                <circle cx="405" cy="100" r="95" fill="#26af5f" opacity="0.95"/>
+                <circle cx="295" cy="70" r="105" fill="#10ac84"/>
+                <circle cx="295" cy="165" r="115" fill="#2ed573"/>
+                <circle cx="220" cy="190" r="85" fill="#20bf6b"/>
+                <circle cx="370" cy="190" r="85" fill="#20bf6b"/>
+            </svg>
+
+            <!-- 13 quả phân bố chuẩn trong tán lá -->
+            <div id="fruits-container"></div>
+        </div>
+    </div>
+
+    <!-- Modal câu hỏi -->
+    <div class="modal-overlay" id="quiz-modal">
+        <div class="quiz-card">
+            <div class="quiz-instruction" id="quiz-instruction">Hãy chọn nghĩa đúng cho:</div>
+            <div class="quiz-target" id="quiz-target-word">...</div>
+            <div class="options-grid" id="quiz-options"></div>
+            <div class="quiz-feedback" id="quiz-feedback"></div>
+        </div>
+    </div>
+
+    <!-- Modal thử thách tinh mắt -->
+    <div class="shuffle-modal" id="shuffle-modal">
+        <div class="shuffle-title">🌟 Thử Thách Tinh Mắt 🌟</div>
+        
+        <!-- Bộ chọn tốc độ -->
+        <div class="speed-control-box" id="speed-box">
+            <span>Tốc độ:</span>
+            <button class="speed-btn" onclick="setSpeed('slow', this)">Chậm</button>
+            <button class="speed-btn active" onclick="setSpeed('medium', this)">Vừa</button>
+            <button class="speed-btn" onclick="setSpeed('fast', this)">Nhanh</button>
+        </div>
+
+        <div class="shuffle-guide" id="shuffle-guide">Hãy ghi nhớ vị trí các trái cây!</div>
+        
+        <div class="shuffle-stage" id="shuffle-stage"></div>
+
+        <button class="btn-action-shuffle" id="btn-start-shuffle" onclick="executeShuffle()">Bắt đầu xáo trộn ➔</button>
+        <button class="btn-action-shuffle" id="btn-continue" style="display: none;" onclick="closeShuffleGame()">Tiếp tục hái quả ➔</button>
+    </div>
+</div>
+
+<script>
+    // =========================================================================
+    // CẤU HÌNH TEXT HIỂN THỊ (DEVELOPER TÙY CHỈNH HOA / THƯỜNG TRỰC TIẾP TẠI ĐÂY)
+    // =========================================================================
+    const UI_TEXT = {
+        level1Label: "Màn 1: tiếng Anh ➔ tiếng Việt",
+        level2Label: "Màn 2: tiếng Việt ➔ tiếng Anh",
+        quizInstructionL1: "Hãy chọn nghĩa tiếng Việt cho:",
+        quizInstructionL2: "Hãy chọn nghĩa tiếng Anh cho:",
+        correctMsg: "Chính xác! Quả đang rơi vào thùng...",
+        wrongAttempt1Msg: "Chưa đúng! Bạn còn 1 cơ hội duy nhất.",
+        wrongAttempt2Msg: "Bạn đã trả lời sai 2 lần! Quả chưa hái được, hãy chọn quả khác hoặc thử lại sau.",
+        shuffleIntro: (vn, en, icon) => `Hãy ghi nhớ vị trí! Tìm: <b style="color:#f1c40f;">${vn} (${en}) ${icon}</b>`,
+        shuffleShuffling: "Bắt đầu úp và xáo trộn vị trí...",
+        shufflePickGuide: (vn, en, icon) => `Hãy chọn: <b style="color:#f1c40f;">${vn} (${en}) ${icon}</b>`,
+        shuffleWinMsg: "🎯 Xuất sắc! Bạn đã tìm đúng vị trí (+20 điểm)",
+        shuffleLoseMsg: "😅 Tiếc quá! Chưa đúng vị trí rồi",
+        level1Complete: "Xuất sắc! Bạn đã hái hết 13 quả ở màn 1. Chuẩn bị sang màn 2: tiếng Việt ➔ tiếng Anh!",
+        gameComplete: (score) => `Chúc mừng bạn đã hoàn thành xuất sắc toàn bộ bài học với tổng điểm: ${score}!`
+    };
+
+    // 13 bộ từ vựng (Developer có thể sửa chữ hoa/thường tùy ý)
+    const vocabList = [
+        { en: "big cat", vn: "con mèo to", icon: "🍎" },
+        { en: "big dog", vn: "con chó to", icon: "🍊" },
+        { en: "big chicken", vn: "con gà to", icon: "🍐" },
+        { en: "big duck", vn: "con vịt to", icon: "🍋" },
+        { en: "sleep", vn: "ngủ", icon: "🍇" },
+        { en: "play", vn: "chơi", icon: "🍓" },
+        { en: "hide", vn: "trốn", icon: "🍑" },
+        { en: "clean", vn: "làm sạch", icon: "🍒" },
+        { en: "run", vn: "chạy", icon: "🍍" },
+        { en: "eat", vn: "ăn", icon: "🥝" },
+        { en: "look", vn: "nhìn", icon: "🥭" },
+        { en: "climb", vn: "trèo", icon: "🥥" },
+        { en: "swim", vn: "bơi", icon: "🍉" }
+    ];
+
+    // Toạ độ % nằm gọn 100% bên trong tán lá cây ở phía bên phải
+    const treeFoliagePositions = [
+        { top: 12, left: 40 },
+        { top: 12, left: 54 },
+        { top: 22, left: 26 },
+        { top: 24, left: 40 },
+        { top: 24, left: 54 },
+        { top: 22, left: 68 },
+        { top: 35, left: 18 },
+        { top: 36, left: 32 },
+        { top: 34, left: 47 },
+        { top: 36, left: 61 },
+        { top: 35, left: 75 },
+        { top: 48, left: 29 },
+        { top: 48, left: 65 }
+    ];
+
+    // Danh sách trái cây cho thử thách tinh mắt
+    const miniGameFruitPool = [
+        { vn: "Quả táo", en: "Apple", icon: "🍎" },
+        { vn: "Quả chuối", en: "Banana", icon: "🍌" },
+        { vn: "Quả cam", en: "Orange", icon: "🍊" },
+        { vn: "Quả dâu tây", en: "Strawberry", icon: "🍓" },
+        { vn: "Quả xoài", en: "Mango", icon: "🥭" },
+        { vn: "Quả dưa hấu", en: "Watermelon", icon: "🍉" }
+    ];
+
+    let currentLevel = 1;
+    let score = 0;
+    let streakCount = 0;
+    let activeVocabItem = null;
+    let activeFruitElement = null;
+    let collectedCount = 0;
+    let wrongAttempts = 0;
+
+    let shuffleSpeedConfig = {
+        interval: 420,
+        swaps: 8,
+        animTime: "0.36s"
+    };
+
+    function shuffleArray(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    // ==========================================
+    // CHỈNH SIZE FONT CHỮ
+    // ==========================================
+    function changeFontSize(scale, btn) {
+        document.documentElement.style.setProperty('--font-scale', scale);
+        document.querySelectorAll('.btn-font').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    // ==========================================
+    // ÂM THANH & NHẠC NỀN (WEB AUDIO API)
+    // ==========================================
+    let audioCtx = null;
+    let isMuted = false;
+    let bgmInterval = null;
+    const bgmNotes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+
+    function initAudioOnUserGesture() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            startBGM();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function toggleAudio(e) {
+        e.stopPropagation();
+        isMuted = !isMuted;
+        document.getElementById('sound-icon').innerText = isMuted ? "🔇" : "🔊";
+        document.getElementById('sound-text').innerText = isMuted ? "Tắt" : "Bật";
+    }
+
+    function playTone(freq, type, duration, gainVal = 0.1) {
+        if (isMuted || !audioCtx) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch (e) {}
+    }
+
+    function playPop() { playTone(587.33, 'sine', 0.12, 0.15); }
+    function playCorrectSound() {
+        if (isMuted || !audioCtx) return;
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            setTimeout(() => playTone(freq, 'triangle', 0.25, 0.15), i * 80);
+        });
+    }
+    function playWrongSound() {
+        if (isMuted || !audioCtx) return;
+        playTone(220, 'sawtooth', 0.3, 0.15);
+        setTimeout(() => playTone(180, 'sawtooth', 0.35, 0.15), 120);
+    }
+    function playShuffleTick() { playTone(440, 'triangle', 0.06, 0.08); }
+
+    function startBGM() {
+        if (bgmInterval) return;
+        let step = 0;
+        bgmInterval = setInterval(() => {
+            if (!isMuted && audioCtx) {
+                const note = bgmNotes[step % bgmNotes.length];
+                playTone(note, 'sine', 0.5, 0.025);
+                step++;
+            }
+        }, 600);
+    }
+
+    // ==========================================
+    // HIỆU ỨNG TUNG HOA GIẤY (CONFETTI)
+    // ==========================================
+    function triggerConfetti(startX, startY, count = 35) {
+        const colors = ['#ff4757', '#2ed573', '#ffa502', '#1e90ff', '#9b59b6', '#f1c40f', '#e056fd'];
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement('div');
+            p.className = 'confetti-piece';
+            p.style.left = startX + 'px';
+            p.style.top = startY + 'px';
+            p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 150 + 35;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance - Math.random() * 40;
+            const rot = (Math.random() - 0.5) * 720;
+            
+            p.style.setProperty('--tx', `${tx}px`);
+            p.style.setProperty('--ty', `${ty}px`);
+            p.style.setProperty('--rot', `${rot}deg`);
+            
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1200);
+        }
+    }
+
+    // ==========================================
+    // VÒNG ĐỜI GAME
+    // ==========================================
+    function initGame() {
+        buildBasketSlots();
+        renderTree();
+    }
+
+    function buildBasketSlots() {
+        const basketGrid = document.getElementById('basket-grid');
+        basketGrid.innerHTML = "";
+        for (let i = 0; i < 13; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'basket-slot';
+            slot.id = `basket-slot-${i}`;
+            basketGrid.appendChild(slot);
+        }
+    }
+
+    function renderTree() {
+        const container = document.getElementById('fruits-container');
+        container.innerHTML = "";
+        collectedCount = 0;
+        document.getElementById('collected-count').innerText = "0";
+
+        for (let i = 0; i < 13; i++) {
+            const slot = document.getElementById(`basket-slot-${i}`);
+            slot.className = 'basket-slot';
+            slot.innerText = '';
+        }
+
+        let shuffled = shuffleArray([...vocabList]);
+
+        shuffled.forEach((item, index) => {
+            const pos = treeFoliagePositions[index];
+            const fruitEl = document.createElement('div');
+            fruitEl.className = 'fruit-node';
+            fruitEl.style.top = pos.top + '%';
+            fruitEl.style.left = pos.left + '%';
+            fruitEl.innerHTML = `<span class="fruit-icon">${item.icon}</span>`;
+            
+            fruitEl.onclick = () => {
+                playPop();
+                openQuiz(item, fruitEl);
+            };
+            container.appendChild(fruitEl);
+        });
+
+        updateStatusBar();
+    }
+
+    function updateStatusBar() {
+        document.getElementById('level-label').innerText = currentLevel === 1 
+            ? UI_TEXT.level1Label 
+            : UI_TEXT.level2Label;
+        document.getElementById('score-val').innerText = score;
+        document.getElementById('streak-val').innerText = streakCount;
+    }
+
+    function openQuiz(item, element) {
+        activeVocabItem = item;
+        activeFruitElement = element;
+        wrongAttempts = 0;
+
+        const modal = document.getElementById('quiz-modal');
+        const targetWord = document.getElementById('quiz-target-word');
+        const instruction = document.getElementById('quiz-instruction');
+        const optionsGrid = document.getElementById('quiz-options');
+        const feedback = document.getElementById('quiz-feedback');
+
+        feedback.innerText = "";
+        instruction.innerText = currentLevel === 1 ? UI_TEXT.quizInstructionL1 : UI_TEXT.quizInstructionL2;
+        targetWord.innerText = currentLevel === 1 ? item.en : item.vn;
+
+        let options = [item];
+        let distractors = shuffleArray(vocabList.filter(v => v !== item)).slice(0, 3);
+        options = shuffleArray([...options, ...distractors]);
+
+        optionsGrid.innerHTML = "";
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-option';
+            btn.innerText = currentLevel === 1 ? opt.vn : opt.en;
+            btn.onclick = (e) => handleAnswer(opt, e);
+            optionsGrid.appendChild(btn);
+        });
+
+        modal.style.display = "flex";
+    }
+
+    function handleAnswer(selectedOption, event) {
+        const feedback = document.getElementById('quiz-feedback');
+        
+        if (selectedOption === activeVocabItem) {
+            playCorrectSound();
+            const rect = event.target.getBoundingClientRect();
+            triggerConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2, 30);
+
+            feedback.style.color = "#2ed573";
+            feedback.innerText = UI_TEXT.correctMsg;
+            
+            score += 10;
+            streakCount += 1;
+            updateStatusBar();
+
+            document.querySelectorAll('.btn-option').forEach(b => b.disabled = true);
+
+            setTimeout(() => {
+                document.getElementById('quiz-modal').style.display = "none";
+                flyFruitToBasket(activeFruitElement, activeVocabItem.icon);
+            }, 600);
+
+        } else {
+            playWrongSound();
+            wrongAttempts++;
+
+            if (wrongAttempts >= 2) {
+                feedback.style.color = "#ff4757";
+                feedback.innerText = UI_TEXT.wrongAttempt2Msg;
+                document.querySelectorAll('.btn-option').forEach(b => b.disabled = true);
+
+                setTimeout(() => {
+                    document.getElementById('quiz-modal').style.display = "none";
+                }, 1600);
+            } else {
+                feedback.style.color = "#e67e22";
+                feedback.innerText = UI_TEXT.wrongAttempt1Msg;
+            }
+        }
+    }
+
+    function flyFruitToBasket(fruitNode, iconChar) {
+        const startRect = fruitNode.getBoundingClientRect();
+        const targetSlot = document.getElementById(`basket-slot-${collectedCount}`);
+        const destRect = targetSlot.getBoundingClientRect();
+
+        fruitNode.style.visibility = "hidden";
+
+        const flyer = document.createElement('div');
+        flyer.className = 'flying-fruit';
+        flyer.innerText = iconChar;
+        flyer.style.top = startRect.top + 'px';
+        flyer.style.left = startRect.left + 'px';
+        document.body.appendChild(flyer);
+
+        setTimeout(() => {
+            flyer.style.top = (destRect.top + 3) + 'px';
+            flyer.style.left = (destRect.left + 5) + 'px';
+            flyer.style.transform = "scale(0.85)";
+        }, 20);
+
+        setTimeout(() => {
+            flyer.remove();
+            fruitNode.remove();
+
+            targetSlot.innerText = iconChar;
+            targetSlot.classList.add('filled');
+            collectedCount++;
+            document.getElementById('collected-count').innerText = collectedCount;
+
+            if (streakCount === 3) {
+                streakCount = 0;
+                updateStatusBar();
+                setTimeout(prepareShuffleGame, 400);
+            } else {
+                checkLevelCompletion();
+            }
+        }, 770);
+    }
+
+    function checkLevelCompletion() {
+        if (collectedCount >= 13) {
+            if (currentLevel === 1) {
+                alert(UI_TEXT.level1Complete);
+                currentLevel = 2;
+                renderTree();
+            } else {
+                alert(UI_TEXT.gameComplete(score));
+                currentLevel = 1;
+                score = 0;
+                streakCount = 0;
+                renderTree();
+            }
+        }
+    }
+
+    // ==========================================
+    // THỬ THÁCH TINH MẮT
+    // ==========================================
+    const slotXPositions = [25, 185, 345];
+    let activeBonusTriple = [];
+    let targetBonusFruit = null;
+    let bonusCardsSlots = [0, 1, 2];
+    let bonusCardElements = [];
+    let canPickBonusCard = false;
+
+    function setSpeed(type, btn) {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        if (type === 'slow') {
+            shuffleSpeedConfig = { interval: 650, swaps: 6, animTime: "0.58s" };
+        } else if (type === 'medium') {
+            shuffleSpeedConfig = { interval: 420, swaps: 8, animTime: "0.36s" };
+        } else if (type === 'fast') {
+            shuffleSpeedConfig = { interval: 260, swaps: 12, animTime: "0.22s" };
+        }
+    }
+
+    function prepareShuffleGame() {
+        const modal = document.getElementById('shuffle-modal');
+        const stage = document.getElementById('shuffle-stage');
+        const guide = document.getElementById('shuffle-guide');
+        const btnStart = document.getElementById('btn-start-shuffle');
+        const btnContinue = document.getElementById('btn-continue');
+        const speedBox = document.getElementById('speed-box');
+
+        modal.style.display = "flex";
+        btnStart.style.display = "inline-block";
+        btnContinue.style.display = "none";
+        speedBox.style.display = "flex";
+        canPickBonusCard = false;
+        stage.innerHTML = "";
+        bonusCardElements = [];
+        bonusCardsSlots = [0, 1, 2];
+
+        activeBonusTriple = shuffleArray([...miniGameFruitPool]).slice(0, 3);
+        targetBonusFruit = activeBonusTriple[Math.floor(Math.random() * activeBonusTriple.length)];
+
+        guide.innerHTML = UI_TEXT.shuffleIntro(targetBonusFruit.vn, targetBonusFruit.en, targetBonusFruit.icon);
+
+        activeBonusTriple.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'special-card';
+            card.style.left = slotXPositions[index] + 'px';
+            card.innerHTML = `
+                <div class="card-icon">${item.icon}</div>
+                <div class="card-name-vn">${item.vn}</div>
+                <div class="card-name-en">(${item.en})</div>
+            `;
+            card.onclick = () => onSelectBonusCard(item, card);
+            stage.appendChild(card);
+            bonusCardElements.push(card);
+        });
+    }
+
+    function executeShuffle() {
+        document.getElementById('btn-start-shuffle').style.display = "none";
+        document.getElementById('speed-box').style.display = "none";
+        const guide = document.getElementById('shuffle-guide');
+        guide.innerText = UI_TEXT.shuffleShuffling;
+
+        bonusCardElements.forEach(card => {
+            card.style.transition = `left ${shuffleSpeedConfig.animTime} cubic-bezier(0.4, 0, 0.2, 1)`;
+            card.classList.add('hidden-fruit');
+        });
+
+        let currentSwap = 0;
+        const shuffleTimer = setInterval(() => {
+            playShuffleTick();
+            let slotA = Math.floor(Math.random() * 3);
+            let slotB = (slotA + 1 + Math.floor(Math.random() * 2)) % 3;
+
+            let cardA = bonusCardsSlots.indexOf(slotA);
+            let cardB = bonusCardsSlots.indexOf(slotB);
+
+            bonusCardsSlots[cardA] = slotB;
+            bonusCardsSlots[cardB] = slotA;
+
+            bonusCardElements[cardA].style.left = slotXPositions[slotB] + 'px';
+            bonusCardElements[cardB].style.left = slotXPositions[slotA] + 'px';
+
+            currentSwap++;
+            if (currentSwap >= shuffleSpeedConfig.swaps) {
+                clearInterval(shuffleTimer);
+                setTimeout(() => {
+                    guide.innerHTML = UI_TEXT.shufflePickGuide(targetBonusFruit.vn, targetBonusFruit.en, targetBonusFruit.icon);
+                    canPickBonusCard = true;
+                }, 300);
+            }
+        }, shuffleSpeedConfig.interval);
+    }
+
+    function onSelectBonusCard(item, card) {
+        if (!canPickBonusCard) return;
+        canPickBonusCard = false;
+
+        card.classList.add('card-selected');
+
+        setTimeout(() => {
+            bonusCardElements.forEach(c => c.classList.remove('hidden-fruit'));
+            const guide = document.getElementById('shuffle-guide');
+
+            if (item.vn === targetBonusFruit.vn) {
+                playCorrectSound();
+                const rect = card.getBoundingClientRect();
+                triggerConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2, 50);
+                triggerConfetti(window.innerWidth / 2, window.innerHeight / 2, 40);
+
+                score += 20;
+                updateStatusBar();
+                guide.innerHTML = `<span style="color:#2ed573; font-size: 1.25rem;">${UI_TEXT.shuffleWinMsg}</span>`;
+            } else {
+                playWrongSound();
+                guide.innerHTML = `<span style="color:#ff4757; font-size: 1.25rem;">${UI_TEXT.shuffleLoseMsg}</span>`;
+            }
+
+            document.getElementById('btn-continue').style.display = "inline-block";
+        }, 350);
+    }
+
+    function closeShuffleGame() {
+        document.getElementById('shuffle-modal').style.display = "none";
+        checkLevelCompletion();
+    }
+
+    window.onload = initGame;
+</script>
+
+</body>
+</html>

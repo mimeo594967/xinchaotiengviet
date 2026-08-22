@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Enchanted Forest: Vocabulary Quest</title>
+  <style>
+    /* ================= GLOBAL RESET & FIT VIEWPORT ================= */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none; /* Chặn popup bôi đen/lưu ảnh trên iOS */
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #0f1f12;
+      touch-action: none; /* Ngăn chặn pull-to-refresh và scroll của trình duyệt */
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* ================= HUD INTERFACE OVERLAY ================= */
+    #ui-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px 24px;
+    }
+
+    /* Top HUD Area */
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .wooden-frame {
+      pointer-events: auto;
+      background: linear-gradient(145deg, #8a4a1f, #54270b);
+      border: 3.5px solid #ffd54f;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 235, 170, 0.6);
+      padding: 10px 16px;
+      color: #ffffff;
+      text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    .quest-card { min-width: 320px; max-width: 440px; }
+
+    .quest-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 14px; font-weight: 800; color: #ffe57f; letter-spacing: 1px;
+      text-transform: uppercase; border-bottom: 2px dashed rgba(255, 229, 127, 0.4);
+      padding-bottom: 4px; margin-bottom: 8px;
+    }
+
+    .quest-target-box {
+      display: flex; align-items: center; gap: 12px; background: rgba(0, 0, 0, 0.45);
+      border-radius: 12px; padding: 10px 14px; border: 1.5px solid rgba(255, 215, 64, 0.6);
+    }
+
+    .target-emoji-orb {
+      width: 56px; height: 56px; background: radial-gradient(circle, #ffffff, #ffe082);
+      border: 3px solid #ffb300; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 34px; box-shadow: 0 0 16px #ffea00;
+      animation: pulseGlow 1.8s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      from { box-shadow: 0 0 8px #ffe082; transform: scale(1); }
+      to { box-shadow: 0 0 20px #ffc107; transform: scale(1.06); }
+    }
+
+    .target-info { display: flex; flex-direction: column; gap: 2px; }
+    .target-title { font-size: 12px; color: #ffecb3; font-weight: 700; text-transform: uppercase; }
+    .target-name { font-size: 22px; font-weight: 900; color: #ffffff; letter-spacing: 0.5px; }
+
+    .progress-stars { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 15px; font-weight: 700; color: #fff9c4; }
+    .star { font-size: 24px; filter: grayscale(100%) opacity(30%); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .star.collected { filter: grayscale(0%) opacity(100%) drop-shadow(0 0 8px #ffeb3b); transform: scale(1.25); }
+
+    .top-right-group { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; max-width: 460px; }
+    .env-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .env-badge { background: rgba(0, 0, 0, 0.55); border-radius: 20px; padding: 8px 14px; border: 1.5px solid rgba(255, 235, 59, 0.4); font-size: 14px; font-weight: 800; color: #ffffff; display: inline-flex; align-items: center; gap: 6px; }
+    .biome-badge { background: linear-gradient(135deg, rgba(46, 125, 50, 0.9), rgba(27, 94, 32, 0.95)); border: 1.5px solid #a5d6a7; }
+
+    #radar-indicator {
+      pointer-events: auto; background: linear-gradient(135deg, rgba(16, 40, 20, 0.94), rgba(8, 24, 12, 0.98));
+      padding: 8px 16px; border-radius: 20px; border: 2px solid #81c784; color: #e8f5e9; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    #compass-arrow { font-size: 20px; display: inline-block; transition: transform 0.1s ease-out; }
+
+    .btn-teleport {
+      pointer-events: auto; background: linear-gradient(135deg, #8e24aa, #5e35b1);
+      border: 2.5px solid #e1bee7; border-radius: 30px; padding: 10px 20px; /* Nút to hơn cho ngón tay */
+      color: #ffffff; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(142, 36, 170, 0.5); display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+    }
+    .btn-teleport:active:not(:disabled) { transform: translateY(2px) scale(0.96); }
+    .btn-teleport:disabled { background: #616161; border-color: #9e9e9e; cursor: not-allowed; opacity: 0.5; }
+    .assist-badge { background: #ffd600; color: #3e2723; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 900; }
+
+    /* ================= WOODEN SHELF TRACKER (CẢI TIẾN VUỐT CẢM ỨNG CHUẨN IPAD) ================= */
+    .shelf-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-bottom: 10px; }
+    
+    .wooden-shelf {
+      pointer-events: auto; width: 100%; max-width: 1120px;
+      background: linear-gradient(180deg, #8a4a1f 0%, #54270b 80%, #3a1805 100%);
+      border: 4px solid #ffd54f; border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 4px 10px rgba(255, 235, 170, 0.4);
+      padding: 14px 18px; display: flex; align-items: center; gap: 14px;
+      overflow-x: auto;
+      
+      /* CÁC THUỘC TÍNH QUAN TRỌNG ĐỂ IPAD VUỐT MƯỢT MÀ */
+      -webkit-overflow-scrolling: touch; 
+      touch-action: pan-x; 
+      overscroll-behavior-x: contain;
+      scroll-behavior: smooth;
+    }
+
+    .wooden-shelf::-webkit-scrollbar { height: 12px; }
+    .wooden-shelf::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.4); border-radius: 10px; box-shadow: inset 0 0 6px rgba(0,0,0,0.5); margin: 0 20px; }
+    .wooden-shelf::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #ffca28, #f57f17); border: 2px solid #54270b; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+    .shelf-item {
+      position: relative; flex-shrink: 0; width: 70px; height: 70px;
+      background: rgba(0, 0, 0, 0.45); border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      
+      /* QUAN TRỌNG: Ngăn chặn item ăn mất sự kiện touch, giúp vuốt khay gỗ mượt mà */
+      pointer-events: none; 
+    }
+
+    .shelf-item.dimmed { opacity: 0.4; filter: grayscale(80%); }
+    .shelf-item.active-target {
+      opacity: 1; filter: none; border: 3px solid #ffea00;
+      background: radial-gradient(circle, rgba(255, 235, 59, 0.45), rgba(0, 0, 0, 0.7));
+      transform: translateY(-6px) scale(1.15); box-shadow: 0 0 18px rgba(255, 214, 0, 0.8); z-index: 2;
+    }
+    .shelf-item.completed { opacity: 1; filter: none; border: 2px solid #69f0ae; background: radial-gradient(circle, rgba(46, 125, 50, 0.6), rgba(0, 0, 0, 0.45)); box-shadow: 0 0 10px #69f0ae; }
+    
+    .shelf-emoji { font-size: 30px; margin-bottom: 2px; }
+    .shelf-name { font-size: 11px; font-weight: 800; color: #fff8e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+    .shelf-check { position: absolute; top: -6px; right: -6px; background: #00e676; color: #003300; border-radius: 50%; width: 20px; height: 20px; font-size: 13px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.6); border: 2px solid #003300; }
+
+    /* Bottom Control Bar */
+    .hud-bottom-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1120px; font-size: 14px; color: #c8e6c9; font-weight: 700; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); padding: 0 10px; }
+    .btn-action { pointer-events: auto; background: linear-gradient(145deg, #2e7d32, #1b5e20); border: 2px solid #a5d6a7; color: white; font-size: 14px; font-weight: 800; padding: 10px 20px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .btn-action:active { transform: scale(0.95); }
+
+    /* Toast Notification */
+    #toast-notification { position: absolute; top: 130px; left: 50%; transform: translateX(-50%) translateY(-20px); padding: 12px 28px; border-radius: 30px; font-size: 18px; font-weight: 900; pointer-events: none; opacity: 0; transition: all 0.3s ease; z-index: 50; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
+    #toast-notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-success { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #ffffff; border: 3px solid #69f0ae; }
+    .toast-wrong { background: linear-gradient(135deg, #c62828, #8e0000); color: #ffffff; border: 3px solid #ff8a80; }
+    .toast-teleport { background: linear-gradient(135deg, #6a1b9a, #4a148c); color: #ffffff; border: 3px solid #ea80fc; }
+
+    /* ================= D-PAD CONTROLS (LUÔN LUÔN HIỂN THỊ TRÊN IPAD/MOBILE) ================= */
+    #dpad-controls {
+      display: grid; /* LUÔN HIỂN THỊ, BỎ DISPLAY: NONE */
+      position: absolute;
+      bottom: 40px; /* Cách đáy an toàn, tránh vướng thanh Home của iPad */
+      left: 30px;
+      z-index: 50;
+      background: rgba(15, 25, 15, 0.4);
+      border: 3px solid rgba(165, 214, 167, 0.3);
+      border-radius: 50%;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.5);
+      grid-template-columns: 75px 75px 75px; /* Nút rất to, dễ bấm cho iPad */
+      grid-template-rows: 75px 75px 75px;
+      gap: 10px;
+      pointer-events: auto;
+      touch-action: none; /* Khóa thao tác kéo thả dính vào D-pad */
+    }
+
+    .dpad-btn {
+      width: 100%; height: 100%; border-radius: 50%;
+      background: linear-gradient(145deg, #43a047, #1b5e20);
+      border: 3px solid #81c784; color: #e8f5e9; font-size: 34px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 0 #003300, 0 10px 15px rgba(0,0,0,0.5);
+      cursor: pointer; transition: all 0.05s ease-out; text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+
+    /* Hiệu ứng khi ngón tay đè lên nút */
+    .dpad-btn:active, .dpad-btn.active-touch {
+      transform: translateY(6px); box-shadow: 0 0 0 #003300, 0 4px 8px rgba(0,0,0,0.5);
+      background: linear-gradient(145deg, #4caf50, #2e7d32); border-color: #a5d6a7;
+    }
+
+    .dpad-btn.up { grid-column: 2; grid-row: 1; }
+    .dpad-btn.left { grid-column: 1; grid-row: 2; }
+    .dpad-btn.right { grid-column: 3; grid-row: 2; }
+    .dpad-btn.down { grid-column: 2; grid-row: 3; }
+
+    /* Modal Styling */
+    #victory-modal, #freeze-modal { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 100; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+    #victory-modal { background: rgba(8, 20, 10, 0.9); }
+    #freeze-modal { background: rgba(5, 18, 30, 0.82); z-index: 200; }
+    #victory-modal.active, #freeze-modal.active { opacity: 1; pointer-events: auto; }
+
+    .victory-card { background: linear-gradient(160deg, #7c4720, #421e04); border: 6px solid #ffd54f; border-radius: 24px; padding: 36px 44px; text-align: center; color: #fff9e6; max-width: 520px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 35px rgba(255, 213, 79, 0.6); transform: scale(0.85); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    #victory-modal.active .victory-card { transform: scale(1); }
+    .victory-trophy { font-size: 68px; margin-bottom: 8px; animation: floatTrophy 1.5s infinite alternate ease-in-out; }
+    @keyframes floatTrophy { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-12px) rotate(4deg); } }
+    .victory-title { font-size: 30px; font-weight: 900; color: #ffe082; text-transform: uppercase; margin-bottom: 10px; }
+    .victory-desc { font-size: 16px; line-height: 1.6; color: #ffecb3; margin-bottom: 24px; }
+    .btn-play-again { background: linear-gradient(145deg, #2e7d32, #1b5e20); border: 3px solid #a5d6a7; color: white; font-size: 18px; font-weight: 900; padding: 14px 40px; border-radius: 35px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.5); transition: all 0.2s ease; pointer-events: auto; }
+    .btn-play-again:active { transform: scale(0.95); }
+
+    .freeze-card { background: linear-gradient(160deg, #102a43, #0b1d30); border: 4px solid #4fc3f7; border-radius: 22px; padding: 32px 36px; text-align: center; color: #e1f5fe; max-width: 440px; width: 90%; box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 30px rgba(79, 195, 247, 0.4); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    #freeze-modal.active .freeze-card { transform: scale(1); }
+    .freeze-icon { font-size: 58px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #81d4fa); }
+    .freeze-title { font-size: 24px; font-weight: 900; color: #81d4fa; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .freeze-desc { font-size: 14px; color: #b0bec5; margin-bottom: 20px; line-height: 1.5; }
+    .freeze-input-group { display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%; }
+    .freeze-input { width: 100%; padding: 14px 18px; border-radius: 12px; border: 2px solid #29b6f6; background: rgba(0, 0, 0, 0.55); color: #ffffff; font-size: 18px; font-weight: 700; text-align: center; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); letter-spacing: 2px; }
+    .freeze-input:focus { border-color: #81d4fa; box-shadow: 0 0 14px rgba(41, 182, 246, 0.6); }
+    .freeze-error { font-size: 13px; font-weight: 700; color: #ff5252; min-height: 18px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+    .btn-unfreeze { background: linear-gradient(135deg, #0288d1, #01579b); border: 2.5px solid #81d4fa; color: white; font-size: 16px; font-weight: 800; padding: 12px 28px; border-radius: 25px; cursor: pointer; box-shadow: 0 6px 18px rgba(2, 136, 209, 0.4); width: 100%; }
+    .btn-unfreeze:active { transform: translateY(2px); }
+  </style>
+</head>
+<body>
+
+  <!-- Main Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD Interface Layer -->
+  <div id="ui-container">
+    
+    <!-- Top HUD Area -->
+    <div class="hud-top">
+      <!-- Active Quest Frame -->
+      <div class="wooden-frame quest-card">
+        <div class="quest-header">
+          <span>📜 Vocabulary Quest</span>
+          <span id="quest-stage-num">Mission 1 / 20</span>
+        </div>
+        <div class="quest-target-box">
+          <div class="target-emoji-orb" id="target-emoji">👕</div>
+          <div class="target-info">
+            <div class="target-title">Find Item:</div>
+            <div class="target-name" id="target-name">Áo thun</div>
+          </div>
+        </div>
+        <div class="progress-stars">
+          <span>Progress:</span>
+          <span class="star" id="star-1">⭐</span>
+          <span class="star" id="star-2">⭐</span>
+          <span id="progress-text">(0/2 Collected)</span>
+        </div>
+      </div>
+
+      <!-- Top Right Info & Controls -->
+      <div class="top-right-group">
+        <div class="env-row">
+          <span class="env-badge biome-badge" id="current-biome-badge">🍃 Emerald Grove</span>
+          <span class="env-badge" id="clock-badge">🌅 Morning | 08:00 AM</span>
+          <span class="env-badge" id="weather-badge">☀️ Sunny</span>
+        </div>
+        <div class="env-row">
+          <div id="radar-indicator">
+            <span id="compass-arrow">⬆️</span>
+            <span id="radar-text">Tracking nearest animal...</span>
+          </div>
+          <button class="btn-teleport" id="btn-teleport">
+            <span>✨ Teleport Assist</span>
+            <span class="assist-badge" id="assist-count-badge">5 Left</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom HUD (Wooden Shelf Tracker) -->
+    <div class="shelf-container">
+      <div class="wooden-shelf" id="vocabulary-shelf"></div>
+      <div class="hud-bottom-bar">
+        <span>🌲 <b>D-Pad</b> for iPad Control | Freeze Lock: <b>Ctrl + 1</b></span>
+        <button class="btn-action" id="btn-audio-toggle">🔊 Sound: ON</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-notification"></div>
+
+  <!-- BỘ ĐIỀU KHIỂN D-PAD LUÔN HIỂN THỊ (TỐI ƯU IPAD) -->
+  <div id="dpad-controls">
+    <div class="dpad-btn up" id="dpad-up">▲</div>
+    <div class="dpad-btn left" id="dpad-left">◀</div>
+    <div class="dpad-btn right" id="dpad-right">▶</div>
+    <div class="dpad-btn down" id="dpad-down">▼</div>
+  </div>
+
+  <!-- Freeze / Lock Modal -->
+  <div id="freeze-modal">
+    <div class="freeze-card">
+      <div class="freeze-icon">❄️🔒</div>
+      <h2 class="freeze-title">Game Temporarily Locked</h2>
+      <p class="freeze-desc">The game is currently frozen safely. Please enter the password to unlock and continue.</p>
+      <div class="freeze-input-group">
+        <input type="password" id="freeze-password-input" class="freeze-input" placeholder="Enter password..." autocomplete="off" />
+        <div class="freeze-error" id="freeze-error-msg"></div>
+        <button class="btn-unfreeze" id="btn-unfreeze">🔓 Unlock & Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory Win Modal -->
+  <div id="victory-modal">
+    <div class="victory-card">
+      <div class="victory-trophy">🏆</div>
+      <h1 class="victory-title">Quest Complete!</h1>
+      <p class="victory-desc">
+        Congratulations Explorer! You have mastered all 20 vocabulary words and explored all four enchanted biomes!
+      </p>
+      <button class="btn-play-again" id="btn-play-again">🔄 Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       AUDIO SYNTHESIZER ENGINE (Web Audio API)
+       ========================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) { const AudioContext = window.AudioContext || window.webkitAudioContext; this.ctx = new AudioContext(); }
+        if (this.ctx && this.ctx.state === 'suspended') { this.ctx.resume(); }
+      }
+      playTone(freq, type, duration, gainLevel = 0.15) {
+        if (!this.enabled) return;
+        this.init();
+        try {
+          const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+          osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainLevel, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.start(); osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+      playCorrect() {
+        if (!this.enabled) return; this.init();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((n, i) => setTimeout(() => this.playTone(n, 'triangle', 0.25, 0.2), i * 70));
+      }
+      playWrong() {
+        if (!this.enabled) return; this.init();
+        this.playTone(180, 'sawtooth', 0.2, 0.25); setTimeout(() => this.playTone(140, 'sawtooth', 0.3, 0.25), 100);
+      }
+      playTeleport() {
+        if (!this.enabled) return; this.init();
+        const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+        notes.forEach((n, i) => setTimeout(() => this.playTone(n, 'sine', 0.35, 0.2), i * 50));
+      }
+      playFirework() {
+        if (!this.enabled) return; this.init();
+        try {
+          const bufferSize = this.ctx.sampleRate * 0.4; const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+          const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(800, this.ctx.currentTime); filter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.4);
+          const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.35, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+          noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start();
+        } catch(e) {}
+      }
+      playVictory() {
+        if (!this.enabled) return; this.init();
+        const chord = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        chord.forEach((n, i) => setTimeout(() => this.playTone(n, 'triangle', 0.8, 0.22), i * 120));
+      }
+    }
+    const sound = new SoundEngine();
+
+    /* =========================================================
+       VOCABULARY DATA
+       ========================================================= */
+    const VOCABULARY_LIST = [
+      { id: 'ao_thun', name: 'Áo thun', emoji: '👕', clue: 'Áo thun' },
+      { id: 'ao_khoac', name: 'Áo khoác', emoji: '🧥', clue: 'Áo khoác' },
+      { id: 'ba_lo', name: 'Ba lô', emoji: '🎒', clue: 'Ba lô' },
+      { id: 'ban_chai', name: 'Bàn chải đánh răng', emoji: '🪥', clue: 'Bàn chải đánh răng' },
+      { id: 'dep', name: 'Dép', emoji: '🩴', clue: 'Dép' },
+      { id: 'dong_ho', name: 'Đồng hồ', emoji: '⌚', clue: 'Đồng hồ' },
+      { id: 'giay', name: 'Giày', emoji: '👟', clue: 'Giày' },
+      { id: 'kem_danh_rang', name: 'Kem đánh răng', emoji: '🦷', clue: 'Kem đánh răng' },
+      { id: 'khan', name: 'Khăn', emoji: '🧣', clue: 'Khăn' },
+      { id: 'kinh_boi', name: 'Kính bơi', emoji: '🥽', clue: 'Kính bơi' },
+      { id: 'non_boi', name: 'Nón bơi', emoji: '🏊‍♂️', clue: 'Nón bơi' },
+      { id: 'khau_trang', name: 'Khẩu trang', emoji: '😷', clue: 'Khẩu trang' },
+      { id: 'luoc', name: 'Lược chải tóc', emoji: '🪮', clue: 'Lược chải tóc' },
+      { id: 'mat_kinh', name: 'Mắt kính', emoji: '👓', clue: 'Mắt kính' },
+      { id: 'non', name: 'Nón', emoji: '🧢', clue: 'Nón' },
+      { id: 'quan_dai', name: 'Quần dài', emoji: '👖', clue: 'Quần dài' },
+      { id: 'quan_short', name: 'Quần short', emoji: '🩳', clue: 'Quần short' },
+      { id: 'sua_tam', name: 'Sữa tắm', emoji: '🧴', clue: 'Sữa tắm' },
+      { id: 'day_nit', name: 'Dây nịt', emoji: '🎗️', clue: 'Dây nịt' },
+      { id: 'vo', name: 'Vớ', emoji: '🧦', clue: 'Vớ' }
+    ];
+
+    const BIOMES = {
+      NORTH_WEST: { id: 'emerald', name: '🍃 Emerald Grove', groundBase: '#2e7d32', groundAccent: '#388e3c', treeColors: ['#1b5e20', '#2e7d32', '#43a047'], flora: ['🌸', '🌼', '🍄', '🌿', '🌷'], animals: [{ type: 'Fox', emoji: '🦊', speed: 0.9 }, { type: 'Rabbit', emoji: '🐰', speed: 1.2 }, { type: 'Squirrel', emoji: '🐿️', speed: 1.3 }] },
+      NORTH_EAST: { id: 'autumn', name: '🍂 Autumn Woods', groundBase: '#b26a22', groundAccent: '#c77826', treeColors: ['#d84315', '#ef6c00', '#f57f17'], flora: ['🍁', '🍄', '🌾', '🌰', '🍂'], animals: [{ type: 'Bear', emoji: '🐻', speed: 0.6 }, { type: 'Raccoon', emoji: '🦝', speed: 0.8 }, { type: 'Deer', emoji: '🦌', speed: 1.1 }] },
+      SOUTH_WEST: { id: 'blossom', name: '🌸 Blossom Valley', groundBase: '#2d6a4f', groundAccent: '#40916c', treeColors: ['#f06292', '#ec407a', '#ba68c8'], flora: ['🌺', '🌸', '🍥', '🌷͙֒', '🍄'], animals: [{ type: 'Panda', emoji: '🐼', speed: 0.5 }, { type: 'Koala', emoji: '🐨', speed: 0.5 }, { type: 'Owl', emoji: '🦉', speed: 0.9 }] },
+      SOUTH_EAST: { id: 'frost', name: '❄️ Frosty Pines', groundBase: '#e1f5fe', groundAccent: '#b3e5fc', treeColors: ['#1b4332', '#2d6a4f', '#78909c'], flora: ['❄️', '🌲', '☃️', '🧊', '❆'], animals: [{ type: 'Hedgehog', emoji: '🦔', speed: 0.7 }, { type: 'Wolf', emoji: '🐺', speed: 1.1 }, { type: 'Reindeer', emoji: '🦌', speed: 1.2 }] }
+    };
+
+    function getBiomeByCoordinates(x, y) {
+      if (x <= 0 && y <= 0) return BIOMES.NORTH_WEST;
+      if (x > 0 && y <= 0) return BIOMES.NORTH_EAST;
+      if (x <= 0 && y > 0) return BIOMES.SOUTH_WEST;
+      return BIOMES.SOUTH_EAST;
+    }
+
+    /* =========================================================
+       WORLD SETUP & GAME STATE
+       ========================================================= */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width = window.innerWidth; let height = window.innerHeight;
+
+    function resizeCanvas() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+    const player = { x: -60, y: -60, size: 32, speed: 9.0, isMoving: false, stepTimer: 0 };
+
+    let currentVocabIndex = 0; let currentCollectedCount = 0; const TARGET_COLLECTIONS_NEEDED = 2;
+    let teleportAssistsLeft = 5; let gameWon = false; let isFrozen = false; const FREEZE_PASSWORD = "467467";
+    let worldTime = 8.0; const weatherTypes = ['sunny', 'rainy', 'snowy', 'storm']; let currentWeather = 'sunny'; let weatherTimer = 0;
+    const keys = {};
+
+    function triggerFreeze() {
+      if (isFrozen) return; isFrozen = true; for (const k in keys) keys[k] = false; player.isMoving = false;
+      const freezeModal = document.getElementById('freeze-modal'); const passInput = document.getElementById('freeze-password-input'); const errorMsg = document.getElementById('freeze-error-msg');
+      errorMsg.textContent = ''; passInput.value = ''; freezeModal.classList.add('active'); setTimeout(() => passInput.focus(), 100);
+    }
+
+    function tryUnfreeze() {
+      const passInput = document.getElementById('freeze-password-input'); const errorMsg = document.getElementById('freeze-error-msg');
+      if (passInput.value === FREEZE_PASSWORD) { isFrozen = false; document.getElementById('freeze-modal').classList.remove('active'); errorMsg.textContent = ''; passInput.value = ''; showToast('🔓 Game unlocked successfully!', true); }
+      else { errorMsg.textContent = '❌ Incorrect password!'; passInput.value = ''; passInput.focus(); }
+    }
+
+    document.getElementById('btn-unfreeze').addEventListener('click', tryUnfreeze);
+    document.getElementById('freeze-password-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnfreeze(); });
+    window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1')) { e.preventDefault(); triggerFreeze(); return; } if (isFrozen) return; keys[e.key.toLowerCase()] = true; sound.init(); });
+    window.addEventListener('keyup', e => { if (isFrozen) return; keys[e.key.toLowerCase()] = false; });
+
+    /* BINDING D-PAD TOUCH NÂNG CAO */
+    const dpadContainer = document.getElementById('dpad-controls');
+    
+    // Ngăn chặn Safari vuốt qua trái/phải trang khi chạm vào khu vực D-Pad
+    dpadContainer.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive: false});
+
+    function bindDpad(id, key) {
+      const elem = document.getElementById(id);
+      if(!elem) return;
+      
+      const press = (e) => { 
+        e.preventDefault(); 
+        if(!isFrozen) {
+          keys[key] = true; 
+          elem.classList.add('active-touch'); // Thêm hiệu ứng css lún nút
+          sound.init(); 
+        }
+      };
+      
+      const release = (e) => { 
+        e.preventDefault(); 
+        keys[key] = false; 
+        elem.classList.remove('active-touch');
+      };
+      
+      elem.addEventListener('touchstart', press, {passive: false});
+      elem.addEventListener('touchend', release, {passive: false});
+      elem.addEventListener('touchcancel', release, {passive: false});
+      elem.addEventListener('mousedown', press);
+      elem.addEventListener('mouseup', release);
+      elem.addEventListener('mouseleave', release);
+    }
+
+    bindDpad('dpad-up', 'w');
+    bindDpad('dpad-down', 's');
+    bindDpad('dpad-left', 'a');
+    bindDpad('dpad-right', 'd');
+
+    /* =========================================================
+       WORLD CHUNKS & MAP
+       ========================================================= */
+    const CHUNK_SIZE = 400; const RIVER_WIDTH = 90; const worldChunks = new Map();
+    function pseudoRandom(seed) { const x = Math.sin(seed++) * 10000; return x - Math.floor(x); }
+
+    class Chunk {
+      constructor(cx, cy) { this.cx = cx; this.cy = cy; this.trees = []; this.bushes = []; this.flowers = []; this.animals = []; this.generate(); }
+      generate() {
+        const baseSeed = this.cx * 73856093 ^ this.cy * 19349663; let s = baseSeed;
+        const centerX = this.cx * CHUNK_SIZE + CHUNK_SIZE / 2; const centerY = this.cy * CHUNK_SIZE + CHUNK_SIZE / 2; const biome = getBiomeByCoordinates(centerX, centerY);
+
+        const treeCount = 6 + Math.floor(pseudoRandom(s++) * 5);
+        for (let i = 0; i < treeCount; i++) {
+          const tx = this.cx * CHUNK_SIZE + pseudoRandom(s++) * (CHUNK_SIZE - 60) + 30; const ty = this.cy * CHUNK_SIZE + pseudoRandom(s++) * (CHUNK_SIZE - 60) + 30;
+          if (Math.abs(tx) > RIVER_WIDTH / 2 + 30 && Math.abs(ty) > RIVER_WIDTH / 2 + 30) this.trees.push({ x: tx, y: ty, size: 44 + pseudoRandom(s++) * 24, colorIndex: Math.floor(pseudoRandom(s++) * 3), biome });
+        }
+
+        const bushCount = 7 + Math.floor(pseudoRandom(s++) * 6);
+        for (let i = 0; i < bushCount; i++) {
+          const bx = this.cx * CHUNK_SIZE + pseudoRandom(s++) * CHUNK_SIZE; const by = this.cy * CHUNK_SIZE + pseudoRandom(s++) * CHUNK_SIZE;
+          if (Math.abs(bx) > RIVER_WIDTH / 2 + 20 && Math.abs(by) > RIVER_WIDTH / 2 + 20) this.bushes.push({ x: bx, y: by, radius: 14 + pseudoRandom(s++) * 16, color: biome.treeColors[1] });
+        }
+
+        const flowerCount = 10 + Math.floor(pseudoRandom(s++) * 8);
+        for (let i = 0; i < flowerCount; i++) {
+          const fx = this.cx * CHUNK_SIZE + pseudoRandom(s++) * CHUNK_SIZE; const fy = this.cy * CHUNK_SIZE + pseudoRandom(s++) * CHUNK_SIZE;
+          if (Math.abs(fx) > RIVER_WIDTH / 2 + 10 && Math.abs(fy) > RIVER_WIDTH / 2 + 10) this.flowers.push({ x: fx, y: fy, emoji: biome.flora[Math.floor(pseudoRandom(s++) * biome.flora.length)] });
+        }
+
+        for (let i = 0; i < 2; i++) {
+          const animalType = biome.animals[Math.floor(pseudoRandom(s++) * biome.animals.length)]; const randomItem = VOCABULARY_LIST[Math.floor(pseudoRandom(s++) * VOCABULARY_LIST.length)];
+          let ax = this.cx * CHUNK_SIZE + 50 + pseudoRandom(s++) * (CHUNK_SIZE - 100); let ay = this.cy * CHUNK_SIZE + 50 + pseudoRandom(s++) * (CHUNK_SIZE - 100);
+          if (Math.abs(ax) < RIVER_WIDTH / 2) ax = ax < 0 ? -RIVER_WIDTH / 2 - 40 : RIVER_WIDTH / 2 + 40; if (Math.abs(ay) < RIVER_WIDTH / 2) ay = ay < 0 ? -RIVER_WIDTH / 2 - 40 : RIVER_WIDTH / 2 + 40;
+          this.animals.push({ x: ax, y: ay, targetX: 0, targetY: 0, moveTimer: pseudoRandom(s++) * 100, type: animalType.type, emoji: animalType.emoji, speed: animalType.speed, heldItem: randomItem, collected: false, bobOffset: pseudoRandom(s++) * Math.PI * 2 });
+        }
+      }
+    }
+
+    function getChunk(cx, cy) { const key = `${cx},${cy}`; if (!worldChunks.has(key)) { worldChunks.set(key, new Chunk(cx, cy)); } return worldChunks.get(key); }
+
+    function guaranteeTargetDistribution() {
+      const currentTarget = VOCABULARY_LIST[currentVocabIndex]; const playerChunkX = Math.floor(player.x / CHUNK_SIZE); const playerChunkY = Math.floor(player.y / CHUNK_SIZE);
+      let targetCount = 0; const nearbyAnimals = [];
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
+          const chunk = getChunk(playerChunkX + dx, playerChunkY + dy);
+          for (const anim of chunk.animals) { nearbyAnimals.push(anim); if (anim.heldItem.id === currentTarget.id && !anim.collected) targetCount++; }
+        }
+      }
+      while (targetCount < TARGET_COLLECTIONS_NEEDED && nearbyAnimals.length > 0) {
+        const randomAnim = nearbyAnimals[Math.floor(Math.random() * nearbyAnimals.length)];
+        if (randomAnim.heldItem.id !== currentTarget.id) { randomAnim.heldItem = currentTarget; randomAnim.collected = false; targetCount++; }
+      }
+    }
+
+    /* =========================================================
+       WEATHER SYSTEM
+       ========================================================= */
+    class WeatherEngine {
+      constructor() { this.type = 'sunny'; this.particles = []; this.splashRings = []; this.lightningFlash = 0; this.initType(this.type); }
+      setType(newType) { this.type = newType; this.particles = []; this.splashRings = []; this.lightningFlash = 0; this.initType(newType); }
+      initType(type) { let count = 40; if (type === 'rainy') count = 160; else if (type === 'snowy') count = 80; else if (type === 'storm') count = 75; for (let i = 0; i < count; i++) this.particles.push(this.createParticle(true)); }
+      createParticle(randomY = false) {
+        const startY = randomY ? Math.random() * height : -20; const startX = Math.random() * (width + 100) - 50;
+        if (this.type === 'sunny') return { x: startX, y: startY, vx: (Math.random() - 0.5) * 0.8, vy: 0.5 + Math.random() * 0.8, size: 2.5 + Math.random() * 2.5, alpha: 0.4 + Math.random() * 0.4, sway: Math.random() * Math.PI * 2 };
+        else if (this.type === 'rainy') return { x: startX, y: startY, vx: -2.5, vy: 16 + Math.random() * 8, len: 16 + Math.random() * 10, alpha: 0.6 + Math.random() * 0.3 };
+        else if (this.type === 'snowy') return { x: startX, y: startY, vx: 0, vy: 1.2 + Math.random() * 1.5, size: 3 + Math.random() * 4, alpha: 0.7 + Math.random() * 0.3, sway: Math.random() * Math.PI * 2, isEmoji: Math.random() > 0.65 };
+        else if (this.type === 'storm') return { x: startX, y: startY, vx: -12 - Math.random() * 8, vy: 5 + Math.random() * 5, size: 16 + Math.random() * 8, alpha: 0.85, char: ['🍃', '🍂', '🍁'][Math.floor(Math.random() * 3)] };
+      }
+      update(deltaTime) {
+        if (this.type === 'storm') { if (Math.random() < 0.012 && this.lightningFlash <= 0) this.lightningFlash = 0.8; if (this.lightningFlash > 0) this.lightningFlash -= deltaTime * 2.5; }
+        for (let i = this.splashRings.length - 1; i >= 0; i--) { const ring = this.splashRings[i]; ring.radius += deltaTime * 30; ring.alpha -= deltaTime * 2; if (ring.alpha <= 0) this.splashRings.splice(i, 1); }
+        for (let i = 0; i < this.particles.length; i++) {
+          const p = this.particles[i];
+          if (this.type === 'sunny') { p.sway += deltaTime * 2; p.x += Math.sin(p.sway) * 0.6 + p.vx; p.y += p.vy; }
+          else if (this.type === 'rainy') { p.x += p.vx; p.y += p.vy; if (p.y > height - 100 && Math.random() < 0.08) this.splashRings.push({ x: p.x, y: p.y, radius: 2, alpha: 0.7 }); }
+          else if (this.type === 'snowy') { p.sway += deltaTime * 2.5; p.x += Math.sin(p.sway) * 1.5; p.y += p.vy; }
+          else if (this.type === 'storm') { p.x += p.vx; p.y += p.vy; }
+          if (p.y > height + 25 || p.x < -60 || p.x > width + 60) this.particles[i] = this.createParticle(false);
+        }
+      }
+      draw(context) {
+        context.save();
+        for (const ring of this.splashRings) { context.strokeStyle = `rgba(200, 235, 255, ${ring.alpha})`; context.lineWidth = 1.5; context.beginPath(); context.ellipse(ring.x, ring.y, ring.radius, ring.radius * 0.4, 0, 0, Math.PI * 2); context.stroke(); }
+        for (const p of this.particles) {
+          if (this.type === 'sunny') { context.fillStyle = `rgba(255, 235, 130, ${p.alpha})`; context.beginPath(); context.arc(p.x, p.y, p.size, 0, Math.PI * 2); context.fill(); }
+          else if (this.type === 'rainy') { context.strokeStyle = `rgba(170, 225, 255, ${p.alpha})`; context.lineWidth = 2.2; context.beginPath(); context.moveTo(p.x, p.y); context.lineTo(p.x + p.vx * 1.2, p.y + p.len); context.stroke(); }
+          else if (this.type === 'snowy') { if (p.isEmoji) { context.font = `${p.size + 10}px sans-serif`; context.fillStyle = '#ffffff'; context.fillText('❄️', p.x, p.y); } else { context.fillStyle = `rgba(255, 255, 255, ${p.alpha})`; context.beginPath(); context.arc(p.x, p.y, p.size, 0, Math.PI * 2); context.fill(); } }
+          else if (this.type === 'storm') { context.font = `${p.size}px sans-serif`; context.fillText(p.char, p.x, p.y); }
+        }
+        if (this.type === 'storm' && this.lightningFlash > 0) { context.fillStyle = `rgba(255, 255, 255, ${this.lightningFlash})`; context.fillRect(0, 0, width, height); }
+        context.restore();
+      }
+    }
+    const weatherSystem = new WeatherEngine();
+
+    /* =========================================================
+       FIREWORKS & PARTICLES
+       ========================================================= */
+    const fireworksParticles = []; const magicSparkles = []; const floatingTexts = [];
+    function triggerFireworks(screenX, screenY) { sound.playFirework(); const colors = ['#ff1744', '#ff9100', '#ffd600', '#00e676', '#00b0ff', '#d500f9', '#ffffff']; for (let i = 0; i < 70; i++) { const angle = Math.random() * Math.PI * 2; const speed = 3 + Math.random() * 8; fireworksParticles.push({ x: screenX, y: screenY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, color: colors[Math.floor(Math.random() * colors.length)], alpha: 1.0, gravity: 0.12, radius: 3.5 + Math.random() * 3.5, decay: 0.015 + Math.random() * 0.015 }); } }
+    function spawnTeleportSparkles(screenX, screenY) { for (let i = 0; i < 45; i++) { const angle = Math.random() * Math.PI * 2; const speed = 2 + Math.random() * 6; magicSparkles.push({ x: screenX, y: screenY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5, color: ['#ea80fc', '#b388ff', '#8c9eff', '#ffffff', '#ffd54f'][Math.floor(Math.random() * 5)], alpha: 1.0, radius: 4 + Math.random() * 4, decay: 0.025 + Math.random() * 0.02 }); } }
+    function addFloatingText(text, screenX, screenY, color = '#ffd600') { floatingTexts.push({ text, x: screenX, y: screenY, vy: -1.6, alpha: 1.0, color }); }
+
+    /* =========================================================
+       TELEPORT ASSIST
+       ========================================================= */
+    function useTeleportAssist() {
+      if (gameWon || isFrozen || teleportAssistsLeft <= 0) return;
+      const currentTarget = VOCABULARY_LIST[currentVocabIndex]; const playerChunkX = Math.floor(player.x / CHUNK_SIZE); const playerChunkY = Math.floor(player.y / CHUNK_SIZE);
+      let closestTargetAnimal = null; let minDistance = Infinity;
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dy = -3; dy <= 3; dy++) {
+          const chunk = getChunk(playerChunkX + dx, playerChunkY + dy);
+          for (const anim of chunk.animals) { if (anim.heldItem.id === currentTarget.id && !anim.collected) { const d = Math.hypot(anim.x - player.x, anim.y - player.y); if (d < minDistance) { minDistance = d; closestTargetAnimal = anim; } } }
+        }
+      }
+      if (closestTargetAnimal) {
+        teleportAssistsLeft--; sound.playTeleport(); spawnTeleportSparkles(width / 2, height / 2);
+        player.x = closestTargetAnimal.x - 30; player.y = closestTargetAnimal.y + 10; spawnTeleportSparkles(width / 2, height / 2);
+        showToast(`✨ Teleported to ${currentTarget.name}! (${teleportAssistsLeft} assists left)`, 'teleport'); addFloatingText(`✨ Fast-Travel!`, width / 2, height / 2 - 40, '#e040fb'); updateHUD();
+      } else { showToast(`⚠️ No matching animals nearby! Exploring deeper...`, false); }
+    }
+    document.getElementById('btn-teleport').addEventListener('click', useTeleportAssist);
+
+    /* =========================================================
+       UI & HUD
+       ========================================================= */
+    function buildVocabularyShelf() {
+      const shelfElem = document.getElementById('vocabulary-shelf'); shelfElem.innerHTML = '';
+      VOCABULARY_LIST.forEach((item, index) => {
+        const itemDiv = document.createElement('div'); itemDiv.className = 'shelf-item dimmed'; itemDiv.id = `shelf-item-${index}`;
+        itemDiv.innerHTML = `<div class="shelf-emoji">${item.emoji}</div><div class="shelf-name">${item.name}</div>`; shelfElem.appendChild(itemDiv);
+      });
+    }
+
+    function showToast(message, type = true) {
+      const toast = document.getElementById('toast-notification'); toast.textContent = message;
+      if (type === 'teleport') toast.className = 'toast-teleport show'; else toast.className = type ? 'toast-success show' : 'toast-wrong show';
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => { toast.className = toast.className.replace('show', '').trim(); }, 2200);
+    }
+
+    function updateHUD() {
+      const target = VOCABULARY_LIST[currentVocabIndex];
+      document.getElementById('target-emoji').textContent = target.emoji; document.getElementById('target-name').textContent = target.clue; document.getElementById('quest-stage-num').textContent = `Mission ${currentVocabIndex + 1} / ${VOCABULARY_LIST.length}`;
+      for (let i = 1; i <= TARGET_COLLECTIONS_NEEDED; i++) { const starElem = document.getElementById(`star-${i}`); if (i <= currentCollectedCount) starElem.classList.add('collected'); else starElem.classList.remove('collected'); }
+      document.getElementById('progress-text').textContent = `(${currentCollectedCount}/${TARGET_COLLECTIONS_NEEDED} Collected)`;
+      const currentBiome = getBiomeByCoordinates(player.x, player.y); document.getElementById('current-biome-badge').textContent = currentBiome.name;
+      let timePeriod = 'Morning'; let timeEmoji = '🌅'; let hourNum = Math.floor(worldTime); let minuteNum = Math.floor((worldTime % 1) * 60); let ampm = hourNum >= 12 ? 'PM' : 'AM'; let displayHour = hourNum % 12 || 12; let displayMinutes = minuteNum < 10 ? '0' + minuteNum : minuteNum;
+      if (worldTime >= 5 && worldTime < 11) { timePeriod = 'Morning'; timeEmoji = '🌅'; } else if (worldTime >= 11 && worldTime < 16) { timePeriod = 'Noon'; timeEmoji = '☀️'; } else if (worldTime >= 16 && worldTime < 19.5) { timePeriod = 'Sunset'; timeEmoji = '🌇'; } else { timePeriod = 'Night'; timeEmoji = '🌙'; }
+      document.getElementById('clock-badge').textContent = `${timeEmoji} ${timePeriod} | ${displayHour}:${displayMinutes} ${ampm}`;
+      const weatherLabels = { sunny: '☀️ Sunny', rainy: '🌧️ Rain', snowy: '❄️ Snow', storm: '🌪️ Storm' }; document.getElementById('weather-badge').textContent = `${weatherLabels[currentWeather]}`;
+      const tpBtn = document.getElementById('btn-teleport'); const tpBadge = document.getElementById('assist-count-badge'); tpBadge.textContent = `${teleportAssistsLeft} Left`; tpBtn.disabled = teleportAssistsLeft <= 0;
+
+      VOCABULARY_LIST.forEach((item, index) => {
+        const itemElem = document.getElementById(`shelf-item-${index}`); if (!itemElem) return;
+        if (index < currentVocabIndex) { itemElem.className = 'shelf-item completed'; if (!itemElem.querySelector('.shelf-check')) { const check = document.createElement('div'); check.className = 'shelf-check'; check.textContent = '✓'; itemElem.appendChild(check); } }
+        else if (index === currentVocabIndex) { itemElem.className = 'shelf-item active-target'; const oldCheck = itemElem.querySelector('.shelf-check'); if (oldCheck) oldCheck.remove(); itemElem.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }
+        else { itemElem.className = 'shelf-item dimmed'; const oldCheck = itemElem.querySelector('.shelf-check'); if (oldCheck) oldCheck.remove(); }
+      });
+      guaranteeTargetDistribution();
+    }
+
+    /* =========================================================
+       COLLISION
+       ========================================================= */
+    function checkAnimalCollisions() {
+      if (gameWon || isFrozen) return;
+      const playerChunkX = Math.floor(player.x / CHUNK_SIZE); const playerChunkY = Math.floor(player.y / CHUNK_SIZE); const currentTarget = VOCABULARY_LIST[currentVocabIndex];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const chunk = getChunk(playerChunkX + dx, playerChunkY + dy);
+          for (const animal of chunk.animals) {
+            const dist = Math.hypot(player.x - animal.x, player.y - animal.y);
+            if (dist < 48 && !animal.collected) {
+              const screenX = animal.x - player.x + width / 2; const screenY = animal.y - player.y + height / 2;
+              if (animal.heldItem.id === currentTarget.id) {
+                animal.collected = true; currentCollectedCount++; sound.playCorrect(); triggerFireworks(screenX, screenY); addFloatingText(`✨ +1 ${currentTarget.name}!`, screenX, screenY - 35, '#ffff00'); showToast(`🎉 Excellent! Found ${currentTarget.name} (${currentCollectedCount}/${TARGET_COLLECTIONS_NEEDED})`, true);
+                if (currentCollectedCount >= TARGET_COLLECTIONS_NEEDED) {
+                  currentCollectedCount = 0; currentVocabIndex++;
+                  if (currentVocabIndex >= VOCABULARY_LIST.length) { gameWon = true; sound.playVictory(); document.getElementById('victory-modal').classList.add('active'); for (let f = 0; f < 6; f++) { setTimeout(() => { triggerFireworks(width * 0.2 + Math.random() * width * 0.6, height * 0.2 + Math.random() * height * 0.5); }, f * 300); } }
+                  else { setTimeout(() => { showToast(`🌟 Next Objective: Find ${VOCABULARY_LIST[currentVocabIndex].name}!`, true); }, 1200); }
+                }
+                updateHUD();
+              } else { sound.playWrong(); showToast(`❌ That's ${animal.heldItem.name}! Find ${currentTarget.name}!`, false); addFloatingText(`⚠️ Not ${currentTarget.name}!`, screenX, screenY - 35, '#ff5252'); player.x += (player.x - animal.x) * 0.3; player.y += (player.y - animal.y) * 0.3; }
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    function updateRadarCompass() {
+      const currentTarget = VOCABULARY_LIST[currentVocabIndex]; const playerChunkX = Math.floor(player.x / CHUNK_SIZE); const playerChunkY = Math.floor(player.y / CHUNK_SIZE);
+      let nearestDist = Infinity; let targetDx = 0; let targetDy = 0;
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dy = -3; dy <= 3; dy++) {
+          const chunk = getChunk(playerChunkX + dx, playerChunkY + dy);
+          for (const animal of chunk.animals) { if (animal.heldItem.id === currentTarget.id && !animal.collected) { const d = Math.hypot(animal.x - player.x, animal.y - player.y); if (d < nearestDist) { nearestDist = d; targetDx = animal.x - player.x; targetDy = animal.y - player.y; } } }
+        }
+      }
+      if (nearestDist < Infinity) { const angle = Math.atan2(targetDy, targetDx) * (180 / Math.PI) + 90; document.getElementById('compass-arrow').style.transform = `rotate(${angle}deg)`; document.getElementById('radar-text').textContent = `Target ${currentTarget.name}: ~${Math.round(nearestDist / 10)}m`; }
+    }
+
+    /* =========================================================
+       UPDATE & RENDER LOOP
+       ========================================================= */
+    let lastTime = performance.now(); let waterWaveTime = 0;
+
+    function updateGame(deltaTime) {
+      if (gameWon || isFrozen) return; waterWaveTime += deltaTime * 2;
+      let moveX = 0; let moveY = 0;
+      if (keys['w'] || keys['arrowup']) moveY -= 1; if (keys['s'] || keys['arrowdown']) moveY += 1; if (keys['a'] || keys['arrowleft']) moveX -= 1; if (keys['d'] || keys['arrowright']) moveX += 1;
+      const len = Math.hypot(moveX, moveY);
+      if (len > 0) { player.x += (moveX / len) * player.speed; player.y += (moveY / len) * player.speed; player.isMoving = true; player.stepTimer += deltaTime; } else { player.isMoving = false; }
+      worldTime = (worldTime + deltaTime * 0.08) % 24; weatherTimer += deltaTime;
+      if (weatherTimer > 35) { weatherTimer = 0; const oldWeather = currentWeather; while (currentWeather === oldWeather) { currentWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)]; } weatherSystem.setType(currentWeather); }
+      weatherSystem.update(deltaTime);
+      for (let i = fireworksParticles.length - 1; i >= 0; i--) { const fp = fireworksParticles[i]; fp.x += fp.vx; fp.y += fp.vy; fp.vy += fp.gravity; fp.alpha -= fp.decay; if (fp.alpha <= 0) fireworksParticles.splice(i, 1); }
+      for (let i = magicSparkles.length - 1; i >= 0; i--) { const sp = magicSparkles[i]; sp.x += sp.vx; sp.y += sp.vy; sp.alpha -= sp.decay; if (sp.alpha <= 0) magicSparkles.splice(i, 1); }
+      for (let i = floatingTexts.length - 1; i >= 0; i--) { const ft = floatingTexts[i]; ft.y += ft.vy; ft.alpha -= 0.015; if (ft.alpha <= 0) floatingTexts.splice(i, 1); }
+      const pChunkX = Math.floor(player.x / CHUNK_SIZE); const pChunkY = Math.floor(player.y / CHUNK_SIZE);
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
+          const chunk = getChunk(pChunkX + dx, pChunkY + dy);
+          for (const anim of chunk.animals) {
+            anim.bobOffset += deltaTime * 2.2; anim.moveTimer += deltaTime;
+            if (anim.moveTimer > 3.5) { anim.moveTimer = 0; anim.targetX = (Math.random() - 0.5) * 60; anim.targetY = (Math.random() - 0.5) * 60; }
+            anim.x += (anim.targetX || 0) * 0.006 * anim.speed; anim.y += (anim.targetY || 0) * 0.006 * anim.speed;
+          }
+        }
+      }
+      checkAnimalCollisions(); updateRadarCompass(); updateHUD();
+    }
+
+    function renderGame() {
+      ctx.clearRect(0, 0, width, height); const camX = width / 2 - player.x; const camY = height / 2 - player.y;
+      const minChunkX = Math.floor((player.x - width / 2) / CHUNK_SIZE) - 1; const maxChunkX = Math.floor((player.x + width / 2) / CHUNK_SIZE) + 1; const minChunkY = Math.floor((player.y - height / 2) / CHUNK_SIZE) - 1; const maxChunkY = Math.floor((player.y + height / 2) / CHUNK_SIZE) + 1;
+      for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+        for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+          const startX = cx * CHUNK_SIZE + camX; const startY = cy * CHUNK_SIZE + camY; const biome = getBiomeByCoordinates(cx * CHUNK_SIZE + CHUNK_SIZE / 2, cy * CHUNK_SIZE + CHUNK_SIZE / 2);
+          ctx.fillStyle = biome.groundBase; ctx.fillRect(startX, startY, CHUNK_SIZE + 1, CHUNK_SIZE + 1);
+          ctx.fillStyle = biome.groundAccent; ctx.beginPath(); ctx.arc(startX + 120, startY + 120, 80, 0, Math.PI * 2); ctx.arc(startX + 480, startY + 380, 90, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      drawRivers(camX, camY); drawBridges(camX, camY); ctx.globalAlpha = 1.0;
+      for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+        for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+          const chunk = getChunk(cx, cy);
+          for (const fl of chunk.flowers) { const sx = fl.x + camX; const sy = fl.y + camY; if (sx >= -30 && sx <= width + 30 && sy >= -30 && sy <= height + 30) { ctx.font = '20px sans-serif'; ctx.fillText(fl.emoji, sx, sy); } }
+          for (const bush of chunk.bushes) { const sx = bush.x + camX; const sy = bush.y + camY; if (sx >= -50 && sx <= width + 50 && sy >= -50 && sy <= height + 50) { ctx.fillStyle = bush.color; ctx.beginPath(); ctx.arc(sx, sy, bush.radius, 0, Math.PI * 2); ctx.fill(); } }
+        }
+      }
+      const renderEntities = [];
+      for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+        for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+          const chunk = getChunk(cx, cy);
+          for (const tree of chunk.trees) { const sx = tree.x + camX; const sy = tree.y + camY; if (sx >= -100 && sx <= width + 100 && sy >= -130 && sy <= height + 130) renderEntities.push({ y: tree.y, draw: () => drawTree(tree, sx, sy) }); }
+          for (const animal of chunk.animals) { const sx = animal.x + camX; const sy = animal.y + camY; if (sx >= -180 && sx <= width + 180 && sy >= -180 && sy <= height + 180) renderEntities.push({ y: animal.y, draw: () => drawAnimal(animal, sx, sy) }); }
+        }
+      }
+      renderEntities.push({ y: player.y, draw: () => drawPlayer(width / 2, height / 2) }); renderEntities.sort((a, b) => a.y - b.y); for (const ent of renderEntities) ent.draw();
+      drawDayNightAtmosphere(); weatherSystem.draw(ctx);
+      for (const sp of magicSparkles) { ctx.save(); ctx.globalAlpha = Math.max(0, sp.alpha); ctx.fillStyle = sp.color; ctx.shadowColor = sp.color; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      for (const fp of fireworksParticles) { ctx.save(); ctx.globalAlpha = Math.max(0, fp.alpha); ctx.fillStyle = fp.color; ctx.shadowColor = fp.color; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(fp.x, fp.y, fp.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      for (const ft of floatingTexts) { ctx.save(); ctx.globalAlpha = Math.max(0, ft.alpha); ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = ft.color; ctx.shadowColor = '#000000'; ctx.shadowBlur = 6; ctx.fillText(ft.text, ft.x, ft.y); ctx.restore(); }
+    }
+
+    function drawPlayer(pScreenX, pScreenY) { ctx.save(); ctx.globalAlpha = 1.0; ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; ctx.beginPath(); ctx.ellipse(pScreenX, pScreenY + 18, 20, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.font = '42px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const playerBob = player.isMoving ? Math.sin(player.stepTimer * 14) * 3 : 0; ctx.fillText('🤠', pScreenX, pScreenY + playerBob); ctx.restore(); }
+    function drawAnimal(animal, sx, sy) { ctx.save(); ctx.globalAlpha = 1.0; const bob = Math.sin(animal.bobOffset) * 4; ctx.fillStyle = 'rgba(0, 0, 0, 0.28)'; ctx.beginPath(); ctx.ellipse(sx, sy + 16, 20, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.font = '40px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(animal.emoji, sx, sy + bob); if (!animal.collected) { const plaqueY = sy - 48 + bob; const itemName = animal.heldItem.name; ctx.font = 'bold 13px sans-serif'; const textWidth = ctx.measureText(itemName).width; const pillWidth = Math.max(104, textWidth + 50); const pillHeight = 36; ctx.fillStyle = 'rgba(15, 25, 15, 0.94)'; ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2.5; ctx.shadowColor = '#ffd54f'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.roundRect(sx - pillWidth / 2, plaqueY - pillHeight / 2, pillWidth, pillHeight, 12); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; ctx.font = '22px sans-serif'; ctx.fillText(animal.heldItem.emoji, sx - pillWidth / 2 + 20, plaqueY + 1); ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.fillText(itemName, sx - pillWidth / 2 + 38, plaqueY + 1); ctx.textAlign = 'center'; } else { ctx.font = '20px sans-serif'; ctx.fillText('✅', sx, sy - 36 + bob); } ctx.restore(); }
+    function drawTree(tree, sx, sy) { ctx.save(); ctx.globalAlpha = 1.0; ctx.fillStyle = 'rgba(0, 0, 0, 0.28)'; ctx.beginPath(); ctx.ellipse(sx, sy + 15, tree.size * 0.75, tree.size * 0.32, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#4a2c11'; ctx.fillRect(sx - 8, sy - 15, 16, 32); ctx.fillStyle = tree.biome.treeColors[tree.colorIndex]; ctx.beginPath(); ctx.arc(sx, sy - 32, tree.size * 0.72, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; ctx.beginPath(); ctx.arc(sx - 4, sy - 42, tree.size * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    function drawRivers(camX, camY) { ctx.save(); const vRiverLeft = -RIVER_WIDTH / 2 + camX; const hRiverTop = -RIVER_WIDTH / 2 + camY; ctx.fillStyle = '#d7ccc8'; ctx.fillRect(vRiverLeft - 8, 0, RIVER_WIDTH + 16, height); ctx.fillRect(0, hRiverTop - 8, width, RIVER_WIDTH + 16); ctx.fillStyle = '#0277bd'; ctx.fillRect(vRiverLeft, 0, RIVER_WIDTH, height); ctx.fillRect(0, hRiverTop, width, RIVER_WIDTH); ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)'; ctx.lineWidth = 3; for (let y = -200; y < height + 200; y += 80) { const offset = Math.sin(waterWaveTime + y * 0.05) * 12; ctx.beginPath(); ctx.moveTo(vRiverLeft + 18 + offset, y); ctx.lineTo(vRiverLeft + RIVER_WIDTH - 18 + offset, y); ctx.stroke(); } for (let x = -200; x < width + 200; x += 80) { const offset = Math.cos(waterWaveTime + x * 0.05) * 12; ctx.beginPath(); ctx.moveTo(x, hRiverTop + 18 + offset); ctx.lineTo(x, hRiverTop + RIVER_WIDTH - 18 + offset); ctx.stroke(); } ctx.restore(); }
+    function drawBridges(camX, camY) { ctx.save(); const bridgeSize = RIVER_WIDTH + 36; const bridgePositions = [ { x: 0, y: 0, w: bridgeSize + 30, h: bridgeSize + 30 }, { x: 0, y: -650, w: bridgeSize, h: 90 }, { x: 0, y: 650, w: bridgeSize, h: 90 }, { x: -650, y: 0, w: 90, h: bridgeSize }, { x: 650, y: 0, w: 90, h: bridgeSize } ]; for (const b of bridgePositions) { const sx = b.x + camX - b.w / 2; const sy = b.y + camY - b.h / 2; if (sx + b.w >= -50 && sx <= width + 50 && sy + b.h >= -50 && sy <= height + 50) { ctx.fillStyle = '#6d4c41'; ctx.fillRect(sx, sy, b.w, b.h); ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 3; ctx.strokeRect(sx, sy, b.w, b.h); ctx.beginPath(); if (b.w > b.h) { for (let px = sx + 12; px < sx + b.w; px += 14) { ctx.moveTo(px, sy); ctx.lineTo(px, sy + b.h); } } else { for (let py = sy + 12; py < sy + b.h; py += 14) { ctx.moveTo(sx, py); ctx.lineTo(sx, py + b.w); } } ctx.stroke(); ctx.fillStyle = '#ffb300'; ctx.fillRect(sx - 3, sy - 3, 6, 6); ctx.fillRect(sx + b.w - 3, sy - 3, 6, 6); ctx.fillRect(sx - 3, sy + b.h - 3, 6, 6); ctx.fillRect(sx + b.w - 3, sy + b.h - 3, 6, 6); } } ctx.restore(); }
+    function drawDayNightAtmosphere() { ctx.save(); let overlayColor = 'rgba(0, 0, 0, 0)'; if (worldTime >= 5 && worldTime < 11) { overlayColor = 'rgba(255, 220, 120, 0.07)'; } else if (worldTime >= 11 && worldTime < 16) { overlayColor = 'rgba(255, 255, 255, 0.02)'; } else if (worldTime >= 16 && worldTime < 19.5) { const gradient = ctx.createLinearGradient(0, 0, 0, height); gradient.addColorStop(0, 'rgba(255, 120, 60, 0.18)'); gradient.addColorStop(1, 'rgba(156, 39, 176, 0.2)'); overlayColor = gradient; } else { const lanternRadius = 240; const radialLight = ctx.createRadialGradient(width / 2, height / 2, 30, width / 2, height / 2, lanternRadius); radialLight.addColorStop(0, 'rgba(15, 30, 60, 0.02)'); radialLight.addColorStop(0.7, 'rgba(10, 20, 45, 0.38)'); radialLight.addColorStop(1, 'rgba(5, 15, 35, 0.65)'); overlayColor = radialLight; } ctx.fillStyle = overlayColor; ctx.fillRect(0, 0, width, height); ctx.restore(); }
+
+    /* =========================================================
+       INITIALIZATION & GAME LOOP
+       ========================================================= */
+    let animationFrameId;
+    function gameLoop(time) { if (isFrozen) { lastTime = time; animationFrameId = requestAnimationFrame(gameLoop); return; } const deltaTime = Math.min((time - lastTime) / 1000, 0.1); lastTime = time; updateGame(deltaTime); renderGame(); animationFrameId = requestAnimationFrame(gameLoop); }
+    function initGame() { player.x = -80; player.y = -80; currentVocabIndex = 0; currentCollectedCount = 0; teleportAssistsLeft = 5; gameWon = false; isFrozen = false; worldChunks.clear(); weatherSystem.setType(currentWeather); document.getElementById('freeze-modal').classList.remove('active'); document.getElementById('victory-modal').classList.remove('active'); buildVocabularyShelf(); updateHUD(); if(animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = requestAnimationFrame(gameLoop); }
+    
+    document.getElementById('btn-audio-toggle').addEventListener('click', (e) => { sound.enabled = !sound.enabled; e.target.textContent = sound.enabled ? '🔊 Sound: ON' : '🔇 Sound: OFF'; });
+    document.getElementById('btn-play-again').addEventListener('click', () => { initGame(); });
+    
+    initGame();
+  </script>
+</body>
+</html>
